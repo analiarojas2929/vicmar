@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.local
+references/
+*.tsbuildinfo
+test-results/
+.netlify/
+artifacts/

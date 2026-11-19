@@ -1,0 +1,18 @@
+import React, { Suspense, lazy } from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { MotionConfig } from 'framer-motion';
+import '@fontsource/inter/latin-400.css';
+import '@fontsource/inter/latin-500.css';
+import '@fontsource/inter/latin-600.css';
+import '@fontsource/inter/latin-700.css';
+import './styles.css';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+const Quote = lazy(() => import('./pages/Quote'));
+const Contact = lazy(() => import('./pages/Contact'));
+const About = lazy(() => import('./pages/ContentPages').then(m => ({ default: m.About })));
+const Services = lazy(() => import('./pages/ContentPages').then(m => ({ default: m.Services })));
+const Demo = lazy(() => import('./pages/ContentPages').then(m => ({ default: m.Demo })));
+const NotFound = lazy(() => import('./pages/ContentPages').then(m => ({ default: m.NotFound })));
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><MotionConfig reducedMotion="user"><BrowserRouter><Suspense fallback={<div className="loading" role="status">Cargando experiencia VICMAR…</div>}><Routes><Route element={<Layout />}><Route index element={<Home />}/><Route path="nosotros" element={<About />}/><Route path="servicios" element={<Services />}/><Route path="cotizador" element={<Quote />}/><Route path="contacto" element={<Contact />}/><Route path="demo" element={<Demo />}/><Route path="*" element={<NotFound />}/></Route></Routes></Suspense></BrowserRouter></MotionConfig></React.StrictMode>);
