@@ -16,3 +16,72 @@
 .small,.eyebrow,.hero .eyebrow,.hero-footnote,.service-type,.trust-note,.social-label span,.footer-demo,.footer-bottom,.demo-pill,.steps small,.form-body .eyebrow,.contact-form .eyebrow,.field-error,.estimate small,.quote-aside>p.small{font-size:.75rem}
 .skip-link{left:-9999px;transform:none}.skip-link:focus{left:10px}
 @media(max-width:600px){.hero .eyebrow{font-size:.66rem}.nav-quote{font-size:.75rem;padding-inline:12px}.brand>span{font-size:1.05rem}.brand img{width:32px}.steps li small{display:none}.steps .current small{display:block;font-size:.875rem}.steps .current{flex-direction:row}.steps{align-items:center;gap:8px}.form-actions .button{font-size:.8rem}.service-card>p{min-height:0}.hero-caption span:last-child{font-size:.65rem}.cta-panel .eyebrow{font-size:.7rem}.social-label span{font-size:.7rem}}
+
+.pickup-map {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+}
+.pickup-map h3 { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.pickup-map .button, .pickup-map .text-link { justify-self: start; }
+
+.address-suggestions { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 5px; }
+.address-suggestions li + li { border-top: 1px solid var(--line); }
+.address-suggestions button { display: grid; gap: 4px; width: 100%; padding: 10px 14px; text-align: left; cursor: pointer; font-size: .85rem; }
+.address-suggestions button:is(:hover, :focus-visible) { background: var(--soft); }
+.address-suggestions span { color: var(--muted); font-size: .75rem; }
+
+.pickup-map-canvas {
+  width: 100%;
+  height: clamp(300px, 48vw, 430px);
+  z-index: 0;
+  background: #e5eddf;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.pickup-map-canvas.is-editable .maplibregl-canvas-container.maplibregl-interactive { cursor: crosshair; }
+.pickup-map-canvas .maplibregl-ctrl-top-right .maplibregl-ctrl { margin: 12px 12px 0 0; }
+.pickup-map-canvas .maplibregl-ctrl-group { border-radius: 10px; box-shadow: 0 2px 12px #1b33252b; }
+.pickup-map-canvas .maplibregl-ctrl-group button { width: 38px; height: 38px; }
+.pickup-pin { width: 32px; height: 35px; pointer-events: auto; }
+.is-editable .pickup-pin { cursor: grab; }
+.is-editable .pickup-pin:active { cursor: grabbing; }
+.pickup-pin::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border: 2px solid white;
+  border-radius: 50% 50% 4px 50%;
+  background: #a6531d;
+  transform: rotate(45deg);
+  filter: drop-shadow(1px 2px 2px #0b261e66);
+}
+.pickup-pin::after {
+  content: "";
+  position: absolute;
+  top: 13px;
+  left: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+.pickup-pin.is-confirmed::before { background: var(--forest); }
+.pickup-map-location {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: white;
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+.pickup-map-location span { color: var(--muted); }
+.pickup-map-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }

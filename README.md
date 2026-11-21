@@ -72,7 +72,24 @@ Confirmar derechos de uso de los recursos de marca antes de una publicación ofi
 
 ## Netlify
 
-Subir el repositorio a tu cuenta y conectarlo a Netlify. `netlify.toml` configura `npm run build`, carpeta `dist`, fallback SPA para acceso directo a rutas y headers básicos. También puede subirse `dist/` a Netlify Drop; en ese caso incluir el archivo `_redirects` generado desde public. No requiere variables de entorno ni secretos. No se ha publicado ni vinculado ninguna cuenta de hosting.
+### Autocompletado de direcciones
+
+- Photon funciona por defecto en producción y también actúa como respaldo del buscador Geoapify.
+- Para habilitar Geoapify, configura `GEOAPIFY_API_KEY` con alcance **Functions** en Netlify. Configura `VITE_ADDRESS_PROVIDER=geoapify` para el proceso que compila el frontend. La clave se usa únicamente en la función `/api/address-autocomplete`.
+- `VITE_ADDRESS_DEBOUNCE_MS` ajusta la espera entre pulsaciones. El valor predeterminado es 300 ms y el intervalo aceptado es de 150 a 1500 ms.
+- En desarrollo, `npm run dev` activa Geoapify automáticamente cuando `GEOAPIFY_API_KEY` está definida en `.env.development.local`. La clave queda en el servidor local. Usa `VITE_ADDRESS_PROVIDER=photon` si necesitas probar solo Photon. Para un despliegue manual con `--no-build`, define la variable pública antes de `npm run build` y despliega desde la raíz del repositorio para que Netlify incluya la función.
+- Geoapify utiliza una llamada por solicitud de autocompletado. El endpoint limita solicitudes por IP, evita persistir respuestas y mantiene visible la atribución. El cotizador sigue siendo una demo.
+
+Publicado el 19 de noviembre de 2026 en https://vicmar-demo-ad-digital.netlify.app, dentro del equipo A&D DIGITAL de Netlify. El acceso solicita iniciar sesión en Netlify según la protección vigente del sitio. Se conservó esa protección. Panel: https://app.netlify.com/projects/vicmar-demo-ad-digital.
+
+`netlify.toml` configura `npm run build`, carpeta `dist`, fallback SPA para acceso directo a rutas y headers básicos. No requiere variables de entorno ni secretos de aplicación. El directorio está vinculado al sitio mediante `.netlify/state.json` (excluido de Git). Para actualizar después de cambios:
+
+```sh
+npm run build
+npx netlify-cli deploy --prod --dir dist --no-build
+```
+
+La primera vez en otro equipo: `npx netlify-cli login` y `npx netlify-cli link --id 55cb5eff-59ab-40be-85fb-c496649e34d5`. Las credenciales se gestionan en Netlify CLI; no se guardan en el repositorio. No se ha conectado un repositorio para despliegue automático. También se preparó `artifacts/vicmar-netlify.zip` como copia del sitio compilado.
 
 El prototipo incluye `noindex,nofollow` y robots que bloquea indexación. Para una versión oficial: aprobar textos/contactos, reemplazar tarifas demo, definir dominio, añadir URL absoluta canónica y Open Graph, revisar privacidad y retirar el bloqueo únicamente tras aprobación. No se configura una URL canónica ficticia.
 
