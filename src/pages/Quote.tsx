@@ -344,6 +344,7 @@ export default function Quote() {
           </div>
           <form onSubmit={handleSubmit(submit)} noValidate onKeyDown={(e) => {
             if (e.key === "Enter" &&
+                !e.nativeEvent.isComposing &&
                 (e.target as HTMLElement).tagName === "INPUT" &&
                 step < 4) {
                 e.preventDefault();

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { matchesHouseNumber, matchesStreet, parseAddress } from "./addressSearch";
-import { sameSuggestion, searchAddress, toSuggestion, type PhotonFeature } from "./photon";
+import { sameSuggestion, searchAddress, toSuggestion, type AddressSuggestion, type PhotonFeature } from "./photon";
 
 describe("búsqueda de direcciones de retiro", () => {
     it("expande abreviaturas pegadas al nombre y separa el número y la referencia", () => {
@@ -95,7 +95,13 @@ describe("precisión de los resultados de Photon", () => {
         });
         vi.stubGlobal("fetch", fetchMock);
         try {
-            const outcome = await searchAddress({ ...query, street: "el vergel", number: "816" }, new AbortController().signal);
+            const onPartial = vi.fn((suggestions: AddressSuggestion[]) => {
+                expect(calls).toHaveLength(1);
+                expect(suggestions).toMatchObject([{ address: "Camino El Vergel", point: null }]);
+            });
+            const outcome = await searchAddress({ ...query, street: "el vergel", number: "816" },
+                new AbortController().signal, onPartial);
+            expect(onPartial).toHaveBeenCalledTimes(1);
             expect(outcome.suggestions).toMatchObject([{ address: "Camino El Vergel 816", point: expect.any(Array) }]);
             const retry = calls.find((call) => call.searchParams.get("street") === "Camino El Vergel")!;
             expect(Object.fromEntries(retry.searchParams)).toMatchObject({
