@@ -1,6 +1,13 @@
 [build]
   command = "npm run build"
   publish = "dist"
+
+[context.production.environment]
+  VITE_ADDRESS_PROVIDER = "geoapify"
+
+[functions]
+  directory = "netlify/functions"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
