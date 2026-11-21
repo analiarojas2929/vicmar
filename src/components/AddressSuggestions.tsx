@@ -7,6 +7,7 @@ const useGeoapify = import.meta.env.VITE_ADDRESS_PROVIDER === "geoapify";
 const configuredDebounce = Number(import.meta.env.VITE_ADDRESS_DEBOUNCE_MS);
 const debounce = Number.isFinite(configuredDebounce) && configuredDebounce >= 150 && configuredDebounce <= 1500
     ? configuredDebounce : 300;
+const fallbackDelay = 650;
 
 type SearchResult = {
     query: string;
@@ -23,25 +24,47 @@ export function useAddressSuggestions({ street, number, commune, region }: Addre
         if (!enabled || street.length < 4) return;
         const controller = new AbortController();
         const { signal } = controller;
-        const searchAddresses = async () => {
-            const context = { street, number, commune, region };
-            const primary = useGeoapify ? await searchGeoapify(context, signal).catch(() => []) : [];
+        const context = { street, number, commune, region };
+        let fallbackTimer: number | undefined;
+        let primaryDone = !useGeoapify;
+        let photonStarted = false;
+        let photonDone = false;
+        let photonFailed = false;
+        let best: AddressSuggestion[] = [];
+        const publish = (suggestions: AddressSuggestion[]) => {
             if (signal.aborted) return;
-            if (primary.length) {
-                setResult({ query, suggestions: primary.slice(0, 5), failed: false, pending: Boolean(number && !primary[0].point) });
-                if (!number || primary[0].point) return;
+            if (!best.length || suggestions[0]?.point) best = suggestions.slice(0, 5);
+            const sufficient = best.length > 0 && (!number || Boolean(best[0].point));
+            const pending = !sufficient && (!primaryDone || !photonDone);
+            if (best.length || !pending) {
+                setResult({ query, suggestions: best, pending, failed: !best.length && photonFailed });
             }
-            const outcome = await searchAddress(context, signal, (suggestions) => {
-                if (!signal.aborted && !primary.length) setResult({ query, suggestions, failed: false, pending: true });
-            });
-            if (signal.aborted) return;
-            setResult(primary.length && !outcome.suggestions[0]?.point
-                ? { query, suggestions: primary.slice(0, 5), failed: false }
-                : { query, ...outcome });
+            if (sufficient) {
+                window.clearTimeout(fallbackTimer);
+                controller.abort();
+            }
+        };
+        const startPhoton = async () => {
+            if (signal.aborted || photonStarted) return;
+            photonStarted = true;
+            window.clearTimeout(fallbackTimer);
+            const outcome = await searchAddress(context, signal, publish).catch(() => ({ suggestions: [], failed: true }));
+            photonDone = true;
+            photonFailed = outcome.failed;
+            publish(outcome.suggestions);
+        };
+        const searchAddresses = async () => {
+            if (!useGeoapify) return startPhoton();
+            fallbackTimer = window.setTimeout(startPhoton, fallbackDelay);
+            const primary = await searchGeoapify(context, signal).catch(() => []);
+            primaryDone = true;
+            publish(primary);
+            if (!signal.aborted) void startPhoton();
         };
         const timer = window.setTimeout(searchAddresses, debounce);
         return () => {
             window.clearTimeout(timer);
+            window.clearTimeout(fallbackTimer);
             controller.abort();
         };
     }, [query, street, number, commune, region, enabled]);
