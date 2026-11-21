@@ -1,0 +1,193 @@
+.quote-main {
+    border-radius: 14px;
+    box-shadow: 0 6px 24px #123b380d;
+}
+
+.quote-main .field :is(input, select, textarea) {
+    border-radius: 9px;
+}
+
+.quote-main .form-actions .button,
+.pickup-map .button {
+    min-height: 44px;
+    border-radius: 9px;
+}
+
+.address-input {
+    position: relative;
+    display: block;
+}
+
+.address-input > svg {
+    position: absolute;
+    inset-inline-start: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.address-input input {
+    padding-inline-start: 41px;
+}
+
+.address-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 26px;
+    margin-top: 7px;
+}
+
+.address-status svg {
+    flex-shrink: 0;
+}
+
+.address-field .address-suggestions {
+    overflow: auto;
+    overscroll-behavior: contain;
+    max-height: 17rem;
+    border-radius: 11px;
+    background: white;
+    box-shadow: 0 6px 20px #123b3810;
+}
+
+.address-suggestions [role="option"] {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 11px 14px;
+    min-height: 48px;
+    font-size: .85rem;
+    cursor: pointer;
+}
+
+.address-suggestions [role="option"] > svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--muted);
+}
+
+.address-suggestions [role="option"] > div {
+    display: grid;
+    gap: 3px;
+    overflow-wrap: anywhere;
+}
+
+.address-suggestions [role="option"]:hover,
+.address-suggestions [aria-selected="true"] {
+    background: var(--soft);
+}
+
+.address-suggestions [aria-selected="true"] {
+    box-shadow: inset 3px 0 var(--forest);
+}
+
+.address-suggestions .address-verified {
+    color: var(--forest);
+    font-weight: 600;
+}
+
+.quote-main .pickup-map {
+    border-radius: 13px;
+    padding: clamp(12px, 3vw, 20px);
+    box-shadow: 0 2px 8px #123b380a;
+}
+
+.pickup-map-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--forest);
+}
+
+.pickup-selected {
+    display: grid;
+    gap: 3px;
+    padding: 10px 12px;
+    border-inline-start: 3px solid var(--forest);
+    border-radius: 6px;
+    background: white;
+    overflow-wrap: anywhere;
+    font-size: .84rem;
+}
+
+.pickup-selected span {
+    color: var(--muted);
+    font-size: .76rem;
+}
+
+.pickup-map-frame {
+    position: relative;
+    min-width: 0;
+}
+
+.pickup-map .pickup-map-canvas {
+    height: clamp(265px, 45vh, 380px);
+    border-radius: 11px;
+}
+
+.pickup-map-placeholder {
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: .8rem;
+}
+
+.pickup-map-loading {
+    position: absolute;
+    inset-block-start: 12px;
+    inset-inline-start: 12px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: white;
+    color: var(--forest);
+    font-size: .75rem;
+    box-shadow: 0 2px 9px #123b381c;
+    pointer-events: none;
+}
+
+.pickup-map .maplibregl-ctrl-group button {
+    width: 44px;
+    height: 44px;
+}
+
+.pickup-map .pickup-pin::before {
+    border-color: white;
+    box-shadow: 0 3px 8px #102f2d55;
+}
+
+.pickup-map .text-link {
+    min-height: 44px;
+    align-content: center;
+}
+
+.form-body > h2,
+#pickup-map-title {
+    scroll-margin-block-start: 100px;
+}
+
+@media (max-width: 600px) {
+    .address-field .address-suggestions {
+        max-height: min(14rem, 30dvh);
+    }
+
+    .pickup-map-actions .button {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .quote-main .spin {
+        animation: none;
+    }
+
+    .quote-main .progress-track > span {
+        transition: none;
+    }
+}

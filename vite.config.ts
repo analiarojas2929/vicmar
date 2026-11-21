@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { lookupAddress } from './netlify/functions/address-autocomplete.mjs';
+import { lookupAddress } from './server/address-autocomplete.mjs';
 
 function localAddressApi(key: string): Plugin {
     return {

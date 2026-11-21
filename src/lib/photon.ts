@@ -104,7 +104,8 @@ export function toSuggestion(feature: PhotonFeature, query: AddressQuery): Addre
     };
 }
 
-export async function searchAddress(query: AddressQuery, signal: AbortSignal) {
+export async function searchAddress(query: AddressQuery, signal: AbortSignal,
+    onPartial?: (suggestions: AddressSuggestion[]) => void) {
     const { street, number, commune, region } = query;
     const common = { countrycode: "CL", limit: "12" };
     const area = [...new Set([commune, region])].filter(Boolean);
@@ -144,12 +145,14 @@ export async function searchAddress(query: AddressQuery, signal: AbortSignal) {
     const hasHouse = () => suggestions.some(({ point }) => point);
     add(await search("structured", structured(street)));
     if (!hasHouse() && !signal.aborted) {
+        if (number && suggestions.length) onPartial?.(suggestions.slice(0, 5));
         const houseResults = number ? search("api", freeText(`${street} ${number}`, "house")) : Promise.resolve([]);
         const streetResults = suggestions.length ? [] : await search("api", freeText(street, "street"));
         const variants = [...new Set([...suggestions, ...streetResults].map((item) => item.street))]
             .filter((name) => name.toLowerCase() !== street.toLowerCase()).slice(0, 2);
         add(streetResults);
         if (number && !signal.aborted) {
+            if (streetResults.length) onPartial?.(suggestions.slice(0, 5));
             const results = await Promise.all([
                 houseResults,
                 ...variants.map((name) => search("structured", structured(name, true))),
