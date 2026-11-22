@@ -74,15 +74,15 @@ Confirmar derechos de uso de los recursos de marca antes de una publicación ofi
 
 ### Autocompletado de direcciones
 
-- Photon funciona por defecto en producción y también actúa como respaldo del buscador Geoapify.
-- Para habilitar Geoapify, configura `GEOAPIFY_API_KEY` con alcance **Functions** en Netlify. Configura `VITE_ADDRESS_PROVIDER=geoapify` para el proceso que compila el frontend. La clave se usa únicamente en la función `/api/address-autocomplete`.
+- Para usar Google Maps y Places en el cotizador, configura `VITE_GOOGLE_MAPS_BROWSER_KEY` con una clave de navegador limitada por sitios web y a Maps JavaScript API y Places API (New). Para una compilación de Netlify, la variable debe estar en el ámbito **Builds**. Esta clave de navegador forma parte del cliente. Usa una clave distinta para servicios privados.
+
 - `VITE_ADDRESS_DEBOUNCE_MS` ajusta la espera entre pulsaciones. El valor predeterminado es 300 ms y el intervalo aceptado es de 150 a 1500 ms.
-- En desarrollo, `npm run dev` activa Geoapify automáticamente cuando `GEOAPIFY_API_KEY` está definida en `.env.development.local`. La clave queda en el servidor local. Usa `VITE_ADDRESS_PROVIDER=photon` si necesitas probar solo Photon. Para un despliegue manual con `--no-build`, define la variable pública antes de `npm run build` y despliega desde la raíz del repositorio para que Netlify incluya la función.
-- Geoapify utiliza una llamada por solicitud de autocompletado. El endpoint limita solicitudes por IP, evita persistir respuestas y mantiene visible la atribución. El cotizador sigue siendo una demo.
+- En desarrollo, coloca la clave de navegador de Google en `.env.development.local` y ejecuta `npm run dev`. Para un despliegue manual con `--no-build`, define esa variable antes de `npm run build`.
+- Si Places no responde, el usuario puede abrir la dirección en Google Maps y confirmar el punto mediante coordenadas.
 
 Publicado el 19 de noviembre de 2026 en https://vicmar-demo-ad-digital.netlify.app, dentro del equipo A&D DIGITAL de Netlify. El acceso solicita iniciar sesión en Netlify según la protección vigente del sitio. Se conservó esa protección. Panel: https://app.netlify.com/projects/vicmar-demo-ad-digital.
 
-`netlify.toml` configura `npm run build`, carpeta `dist`, fallback SPA para acceso directo a rutas y headers básicos. No requiere variables de entorno ni secretos de aplicación. El directorio está vinculado al sitio mediante `.netlify/state.json` (excluido de Git). Para actualizar después de cambios:
+`netlify.toml` configura `npm run build`, carpeta `dist`, fallback SPA para acceso directo a rutas y headers básicos. Google Maps y Places usan la clave de navegador definida al compilar. El directorio está vinculado al sitio mediante `.netlify/state.json` (excluido de Git). Para actualizar después de cambios:
 
 ```sh
 npm run build

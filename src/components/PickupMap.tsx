@@ -11,7 +11,7 @@ function mapCoordinates([latitude, longitude]: PickupPoint): [number, number] {
     return [longitude, latitude];
 }
 
-type PickupMapProps = {
+export type PickupMapProps = {
     point: PickupPoint | null;
     center?: PickupPoint | null;
     confirmed: boolean;

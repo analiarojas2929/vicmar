@@ -2,6 +2,7 @@ import { sameSuggestion, toSuggestion, type AddressQuery, type AddressSuggestion
 
 export type GeoapifyResult = {
     place_id?: string;
+    name?: string;
     street?: string;
     housenumber?: string;
     city?: string;
@@ -20,16 +21,17 @@ export type GeoapifyResult = {
 };
 
 export function geoapifySuggestion(entry: GeoapifyResult, query: AddressQuery): AddressSuggestion | null {
-    const building = entry.result_type === "building";
+    const building = entry.result_type === "building" || entry.result_type === "amenity";
     const verified = building && (entry.building_confidence ?? 0) >= 0.95 &&
         ["full_match", "match_by_building"].includes(entry.match_type ?? "");
-    if (!building && entry.result_type !== "street") return null;
+    const reference = !query.number && entry.result_type !== "street" && Boolean(entry.name);
+    if (!building && entry.result_type !== "street" && !reference) return null;
     const district = [entry.municipality, entry.district, entry.suburb];
     for (const name of new Set(district)) {
         const suggestion = toSuggestion({
             properties: {
-                type: verified ? "house" : building ? "building" : "street",
-                street: entry.street, housenumber: entry.housenumber,
+                type: reference ? "street" : verified ? "house" : building ? "building" : "street",
+                street: reference ? entry.name : entry.street, housenumber: reference ? undefined : entry.housenumber,
                 city: entry.city, county: entry.county, district: name, state: entry.state,
                 countrycode: entry.country_code,
             },
@@ -37,6 +39,7 @@ export function geoapifySuggestion(entry: GeoapifyResult, query: AddressQuery): 
         }, query);
         if (suggestion) return {
             ...suggestion,
+            street: reference ? entry.street ?? "" : suggestion.street,
             id: `geoapify:${entry.place_id || suggestion.id}`,
             geoapifyAttribution: typeof entry.attribution === "string" ? entry.attribution : "",
         };

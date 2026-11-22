@@ -8,7 +8,7 @@ export const quoteSchema = z.object({
     unit: z.enum(['kg', 'L']),
     region: z.string().trim().min(3, 'Indica la región.').max(100),
     commune: z.string().trim().min(3, 'Indica la comuna.').max(100),
-    address: z.string().trim().min(5, 'Indica una dirección de retiro.').max(200),
+    address: z.string().trim().min(3, 'Indica una dirección de retiro.').max(200),
     company: z.string().trim().min(2, 'Indica el nombre de tu empresa.').max(100),
     name: z.string().trim().min(3, 'Indica tu nombre.').max(100),
     email: z.email('Ingresa un correo válido.').max(150),

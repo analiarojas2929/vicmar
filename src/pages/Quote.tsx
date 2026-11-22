@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { useForm, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSearchParams, Link } from "react-router-dom";
@@ -7,14 +7,14 @@ import { services, disclaimer } from "../config/content";
 import type { PickupPoint } from "../components/PickupMap";
 import { PickupMapBoundary } from "../components/PickupMapBoundary";
 import { PickupMapFallback } from "../components/PickupMapFallback";
-import { AddressSuggestions, GeoapifyAttribution, useAddressSuggestions } from "../components/AddressSuggestions";
+import { AddressSuggestions, useAddressSuggestions } from "../components/AddressSuggestions";
 import { territoryName, useTerritoryCatalog } from "../lib/territory";
 import { parseAddress } from "../lib/addressSearch";
-import { reverseAddress, type AddressSuggestion } from "../lib/photon";
+import type { AddressSuggestion } from "../lib/photon";
 import { calculateEstimate, money, quoteSchema, type QuoteData, } from "../lib/quote";
 import "./quote-location.css";
-const loadPickupMap = () => import("../components/PickupMap");
-const PickupMap = lazy(() => loadPickupMap().then(({ PickupMap }) => ({ default: PickupMap })));
+const loadPickupMap = () => import("../components/GooglePickupMap").then(({ GooglePickupMap }) => ({ default: GooglePickupMap }));
+const PickupMap = lazy(loadPickupMap);
 const steps = ["Servicio", "Cantidad", "Ubicación", "Tus datos", "Resumen"];
 const fields: FieldPath<QuoteData>[][] = [
     ["service", "waste"],
@@ -49,6 +49,7 @@ export default function Quote() {
     const [request, setRequest] = useState<(QuoteData & { location: ConfirmedLocation }) | null>(null);
     const [busy, setBusy] = useState(false);
     const [showPickupMap, setShowPickupMap] = useState(false);
+    const [showCoordinateEntry, setShowCoordinateEntry] = useState(false);
     const [searchAddress, setSearchAddress] = useState(false);
     const [pickupPoint, setPickupPoint] = useState<PickupPoint | null>(null);
     const [pickupConfirmed, setPickupConfirmed] = useState(false);
@@ -56,14 +57,15 @@ export default function Quote() {
     const [normalizedAddress, setNormalizedAddress] = useState<string | null>(null);
     const [pickupCity, setPickupCity] = useState("");
     const [pickupStreet, setPickupStreet] = useState("");
-    const [pickupAttribution, setPickupAttribution] = useState<string>();
+    const [pickupLabel, setPickupLabel] = useState("");
     const [manualPoint, setManualPoint] = useState(false);
     const providerPrecision = normalizedAddress ? "EXACTA" : pickupMapCenter ? "APROXIMADA" : "SIN_UBICACION";
     const pickupPrecision: LocationPrecision = pickupPoint
         ? manualPoint ? (pickupConfirmed ? "MANUAL" : "SIN_UBICACION") : "EXACTA"
         : pickupMapCenter ? "APROXIMADA" : "SIN_UBICACION";
-    const [reverseResult, setReverseResult] = useState<{ point: PickupPoint; address: string | null } | null>(null);
     const [pickupError, setPickupError] = useState(false);
+    const [lookupStatus, setLookupStatus] = useState<"loading" | "failed" | null>(null);
+    const lookupVersion = useRef(0);
     const pickupCoordinates = pickupPoint
         ? `${pickupPoint[0].toFixed(6)}, ${pickupPoint[1].toFixed(6)}`
         : "";
@@ -91,42 +93,36 @@ export default function Quote() {
     const typedRegion = regions.find((region) => addressParts.includes(territoryName(region.name)));
     const typedCommune = addressParts.length ? (typedRegion ? [typedRegion] : regions)
         .flatMap((region) => region.communes).find((commune) => addressParts.includes(territoryName(commune.name))) : undefined;
-    const searchRegion = values.region || typedRegion?.name || "";
-    const searchCommune = values.commune || typedCommune?.name || "";
+    const typedCommuneRegion = typedCommune && regions.find((region) => region.communes.includes(typedCommune));
+    const searchRegion = typedRegion?.name || typedCommuneRegion?.name || values.region || "";
+    const searchCommune = typedCommune?.name || (searchRegion === values.region ? values.commune : "");
     const conflictingTerritory = Boolean(
         (values.region && typedRegion && values.region !== typedRegion.name) ||
         (values.commune && typedCommune && values.commune !== typedCommune.name)
     );
     const addressResults = useAddressSuggestions(
-        { street: parsedAddress.street, number: parsedAddress.number, commune: searchCommune, region: searchRegion },
-        step === 2 && searchAddress && !conflictingTerritory
+        { address: values.address, street: parsedAddress.street, number: parsedAddress.number,
+            commune: searchCommune, region: searchRegion },
+        step === 2 && searchAddress
     );
-    useEffect(() => {
-        if (!pickupPoint || !manualPoint) return;
-        const controller = new AbortController();
-        const timer = window.setTimeout(async () => {
-            const address = await reverseAddress(pickupPoint, controller.signal).catch(() => null);
-            if (!controller.signal.aborted) setReverseResult({ point: pickupPoint, address });
-        }, 450);
-        return () => {
-            window.clearTimeout(timer);
-            controller.abort();
-        };
-    }, [pickupPoint, manualPoint]);
 
     const clearPickupLocation = () => {
+        lookupVersion.current++;
+        setLookupStatus(null);
         setPickupPoint(null);
         setPickupConfirmed(false);
         setPickupMapCenter(null);
         setNormalizedAddress(null);
         setPickupCity("");
         setPickupStreet("");
-        setPickupAttribution(undefined);
+        setPickupLabel("");
         setManualPoint(false);
         setPickupError(false);
         setSearchAddress(true);
     };
     const selectManualPoint = useCallback((point: PickupPoint) => {
+        lookupVersion.current++;
+        setLookupStatus(null);
         setPickupPoint(point);
         setManualPoint(true);
         setPickupConfirmed(false);
@@ -141,6 +137,10 @@ export default function Quote() {
     const selected = services.find((s) => s.id === values.service);
     const estimate = calculateEstimate(values.service, values.quantity, values.unit);
     const move = (n: number) => {
+        if (step === 2 && n !== 2) {
+            lookupVersion.current++;
+            setLookupStatus(null);
+        }
         setStep(n);
         requestAnimationFrame(() => {
             heading.current?.focus({ preventScroll: true });
@@ -157,7 +157,16 @@ export default function Quote() {
         }
         move(step + 1);
     }
-    function selectSuggestion(suggestion: AddressSuggestion) {
+    async function selectSuggestion(candidate: AddressSuggestion) {
+        const version = ++lookupVersion.current;
+        if (candidate.resolve) setLookupStatus("loading");
+        const suggestion = candidate.resolve ? await candidate.resolve().catch(() => null) : candidate;
+        if (version !== lookupVersion.current) return;
+        setLookupStatus(suggestion ? null : "failed");
+        if (!suggestion) {
+            setShowPickupMap(true);
+            return;
+        }
         const options = { shouldValidate: true, shouldDirty: true };
         const regionName = territoryName(suggestion.region ?? "");
         const communeName = territoryName(suggestion.commune ?? suggestion.city ?? "");
@@ -165,12 +174,18 @@ export default function Quote() {
         const region = suggestedRegion || regions.find((entry) => entry.name === values.region);
         const commune = region?.communes.find((entry) => territoryName(entry.name) === communeName);
         if (region) {
-          if (!values.region) setValue("region", region.name, options);
-          if (!values.commune && commune) setValue("commune", commune.name, options);
+            if (!values.region || typedRegion || typedCommune) {
+                if (region.name !== values.region) {
+                    setValue("region", region.name, options);
+                    setValue("commune", commune?.name ?? "", options);
+                }
+            }
+            if ((!values.commune || typedCommune) && commune) setValue("commune", commune.name, options);
         }
         setPickupCity(suggestion.city ?? "");
         setPickupStreet(suggestion.street);
-        setPickupAttribution(suggestion.geoapifyAttribution);
+        setPickupLabel(suggestion.address);
+        setShowCoordinateEntry(false);
         setNormalizedAddress(suggestion.point
             ? [...new Set([suggestion.address, suggestion.commune, suggestion.city, suggestion.region])].filter(Boolean).join(", ")
             : null);
@@ -187,10 +202,10 @@ export default function Quote() {
         });
     }
     async function previewPickup() {
-        if (!await trigger(fields[2], { shouldFocus: true }) || conflictingTerritory) return;
+        if (!await trigger(fields[2], { shouldFocus: true })) return;
         const best = addressResults?.suggestions[0];
         if (best) selectSuggestion(best);
-        else setShowPickupMap(true);
+        else if (!conflictingTerritory) setShowPickupMap(true);
     }
     async function submit(data: QuoteData) {
         if (step !== 4 || busy) return;
@@ -452,36 +467,37 @@ export default function Quote() {
                     </label>
                   </div>
                   <AddressSuggestions
-                    enabled={searchAddress && !conflictingTerritory}
+                    enabled={searchAddress}
                     street={parsedAddress.street} number={parsedAddress.number} result={addressResults}
                     onSelect={selectSuggestion} error={error("address")}
                     input={{ id: "address", autoComplete: "off", placeholder: "Ej.: Av. Providencia 1200",
                         ...register("address", { onChange: clearPickupLocation }), ...props("address") }}/>
-                  {conflictingTerritory && <p className="field-error" role="alert">La comuna o región escrita en la dirección no coincide con la selección. Corrígela antes de continuar.</p>}
+                  {conflictingTerritory && <p className="field-error" role="alert">La dirección escrita indica otra comuna o región. Elige una sugerencia de Google o ajusta la selección para continuar.</p>}
                   <section className="pickup-map" aria-labelledby="pickup-map-title">
                     <h3 id="pickup-map-title" tabIndex={-1}><span className="pickup-map-icon"><MapPin size={18} aria-hidden="true"/></span> Mapa del punto de retiro</h3>
-                    {pickupStreet && <div className="pickup-selected">
-                        <strong>{normalizedAddress ?? pickupStreet}</strong>
-                        <span>{providerPrecision === "EXACTA" ? "Dirección con número verificado" : "Referencia de calle"}</span>
+                    {lookupStatus && <p className="small muted" role="status">{lookupStatus === "loading"
+                        ? "Comprobando la dirección en Google Maps…"
+                        : "No pudimos comprobar la dirección. Marca el punto de retiro en el mapa."}</p>}
+                    {pickupLabel && <div className="pickup-selected">
+                        <strong>{normalizedAddress ?? pickupLabel}</strong>
+                        <span>{providerPrecision === "EXACTA" ? "Dirección con número verificado" : "Referencia para el mapa"}</span>
                     </div>}
                     {pickupError && !pickupConfirmed && <p className="field-error" role="alert">Marca y confirma la ubicación para continuar.</p>}
                     {providerPrecision === "APROXIMADA" && parsedAddress.number && <p className="small muted" role="status">
-                      Encontramos la calle, pero no pudimos verificar el número. Selecciona en el mapa la ubicación exacta de tu retiro.
+                      Encontramos una referencia, pero no pudimos verificar el número. Selecciona en el mapa la ubicación exacta de tu retiro.
                     </p>}
                     {showPickupMap ? <>
                       <PickupMapBoundary fallback={pickupMapFallback}>
                         <Suspense fallback={<div className="pickup-map-canvas pickup-map-placeholder" role="status">Cargando mapa…</div>}>
-                          <PickupMap point={pickupPoint} center={pickupMapCenter} confirmed={pickupConfirmed} onSelect={selectManualPoint} fallback={pickupMapFallback}/>
+                          {showCoordinateEntry ? pickupMapFallback
+                            : <PickupMap point={pickupPoint} center={pickupMapCenter} confirmed={pickupConfirmed}
+                                onSelect={selectManualPoint} fallback={pickupMapFallback}/>}
                         </Suspense>
                       </PickupMapBoundary>
-                      {pickupAttribution !== undefined && <GeoapifyAttribution sources={[pickupAttribution]}/>}
                       <div className="pickup-map-location" role="status">
                         {pickupPoint ? <>
                           <strong>{pickupConfirmed ? "Punto de retiro confirmado" : "Punto de retiro seleccionado"}</strong>
                           <span>{manualPoint ? "Punto elegido manualmente." : "Encontramos la calle y el número. Revisa la entrada."} · {pickupCoordinates}</span>
-                          {manualPoint && reverseResult?.point === pickupPoint && <span>{reverseResult.address
-                              ? `Referencia cercana en el mapa: ${reverseResult.address}`
-                              : "No se encontró una dirección cercana verificable."}</span>}
                         </> : <span>{pickupMapCenter
                             ? "La sugerencia solo sirve como referencia. Marca la entrada del retiro en el mapa."
                             : "Marca la entrada del retiro en el mapa."}</span>}
@@ -498,6 +514,9 @@ export default function Quote() {
                       <a className="text-link" href={`https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query: pickupCoordinates || pickupAddress })}`} target="_blank" rel="noopener noreferrer">
                         Abrir en Google Maps
                       </a>
+                      {!pickupConfirmed && <button type="button" className="text-link" onClick={() => setShowCoordinateEntry(!showCoordinateEntry)}>
+                        {showCoordinateEntry ? "Volver al mapa interactivo" : "Ingresar coordenadas manualmente"}
+                      </button>}
                     </> : <button type="button" className="button outline" onClick={previewPickup}
                         onPointerEnter={(event) => { if (event.pointerType === "mouse") void loadPickupMap().catch(() => {}); }}>
                       Ubicar dirección en el mapa

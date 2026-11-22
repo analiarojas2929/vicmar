@@ -31,7 +31,8 @@ export type AddressSuggestion = {
     region?: string;
     geoapifyAttribution?: string;
     point: PickupPoint | null;
-    center: PickupPoint;
+    center: PickupPoint | null;
+    resolve?: () => Promise<AddressSuggestion | null>;
 };
 
 export type AddressQuery = { street: string; number: string; commune: string; region: string };

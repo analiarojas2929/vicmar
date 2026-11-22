@@ -28,4 +28,13 @@ describe("precisión de Geoapify", () => {
         expect(geoapifySuggestion({ ...building, city: "Valparaíso" }, query)).toBeNull();
         expect(geoapifySuggestion({ ...building, state: "Coquimbo" }, query)).toBeNull();
     });
+
+    it("admite lugares sin numeración como referencias y conserva la calle real", () => {
+        const place = { ...building, name: "Mercado Central", street: "San Pablo", city: "Santiago",
+            state: "Región Metropolitana de Santiago", result_type: "amenity" };
+        expect(geoapifySuggestion(place, { street: "Mercado Central", number: "", commune: "Santiago",
+            region: "Metropolitana de Santiago" })).toMatchObject({
+            address: "Mercado Central", street: "San Pablo", point: null,
+        });
+    });
 });

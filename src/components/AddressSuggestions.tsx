@@ -1,82 +1,47 @@
-import { useEffect, useId, useState, type ComponentPropsWithRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { LoaderCircle, MapPin, Search } from "lucide-react";
-import { searchAddress, type AddressQuery, type AddressSuggestion } from "../lib/photon";
-import { searchGeoapify } from "../lib/geoapify";
+import type { AddressQuery, AddressSuggestion } from "../lib/photon";
+import { googleMapsEnabled, suggestGoogleAddresses } from "../lib/googleMaps";
 
-const useGeoapify = import.meta.env.VITE_ADDRESS_PROVIDER === "geoapify";
 const configuredDebounce = Number(import.meta.env.VITE_ADDRESS_DEBOUNCE_MS);
 const debounce = Number.isFinite(configuredDebounce) && configuredDebounce >= 150 && configuredDebounce <= 1500
     ? configuredDebounce : 300;
-const fallbackDelay = 650;
+const canSearchAddress = (street: string, number: string) =>
+    street.trim().length > 0 && [street, number].filter(Boolean).join(" ").trim().length >= 3;
 
 type SearchResult = {
     query: string;
     suggestions: AddressSuggestion[];
     failed: boolean;
-    pending?: boolean;
+
 };
 
-export function useAddressSuggestions({ street, number, commune, region }: AddressQuery, enabled: boolean) {
+export function useAddressSuggestions({ street, number, commune, region, address }: AddressQuery & { address: string }, enabled: boolean) {
     const [result, setResult] = useState<SearchResult | null>(null);
-    const query = JSON.stringify([street, number, commune, region]);
+    const googleSession = useRef<{ token?: google.maps.places.AutocompleteSessionToken }>({});
+    const query = JSON.stringify([address, commune, region]);
 
     useEffect(() => {
-        if (!enabled || street.length < 4) return;
+        if (!enabled || !canSearchAddress(street, number) || !googleMapsEnabled) return;
         const controller = new AbortController();
         const { signal } = controller;
-        const context = { street, number, commune, region };
-        let fallbackTimer: number | undefined;
-        let primaryDone = !useGeoapify;
-        let photonStarted = false;
-        let photonDone = false;
-        let photonFailed = false;
-        let best: AddressSuggestion[] = [];
-        const publish = (suggestions: AddressSuggestion[]) => {
-            if (signal.aborted) return;
-            if (!best.length || suggestions[0]?.point) best = suggestions.slice(0, 5);
-            const sufficient = best.length > 0 && (!number || Boolean(best[0].point));
-            const pending = !sufficient && (!primaryDone || !photonDone);
-            if (best.length || !pending) {
-                setResult({ query, suggestions: best, pending, failed: !best.length && photonFailed });
-            }
-            if (sufficient) {
-                window.clearTimeout(fallbackTimer);
-                controller.abort();
-            }
-        };
-        const startPhoton = async () => {
-            if (signal.aborted || photonStarted) return;
-            photonStarted = true;
-            window.clearTimeout(fallbackTimer);
-            const outcome = await searchAddress(context, signal, publish).catch(() => ({ suggestions: [], failed: true }));
-            photonDone = true;
-            photonFailed = outcome.failed;
-            publish(outcome.suggestions);
-        };
         const searchAddresses = async () => {
-            if (!useGeoapify) return startPhoton();
-            fallbackTimer = window.setTimeout(startPhoton, fallbackDelay);
-            const primary = await searchGeoapify(context, signal).catch(() => []);
-            primaryDone = true;
-            publish(primary);
-            if (!signal.aborted) void startPhoton();
+            try {
+                const suggestions = await suggestGoogleAddresses({ street, number, commune, region, address }, googleSession.current, signal);
+                if (!signal.aborted) setResult({ query, suggestions, failed: false });
+            } catch {
+                if (!signal.aborted) setResult({ query, suggestions: [], failed: true });
+            }
         };
         const timer = window.setTimeout(searchAddresses, debounce);
         return () => {
             window.clearTimeout(timer);
-            window.clearTimeout(fallbackTimer);
             controller.abort();
         };
-    }, [query, street, number, commune, region, enabled]);
+    }, [query, address, street, number, commune, region, enabled]);
 
+    if (!googleMapsEnabled) return { query, suggestions: [], failed: true };
     return result?.query === query ? result : null;
-}
-
-export function GeoapifyAttribution({ sources }: { sources: string[] }) {
-    return <p className="small muted">
-        Búsqueda por <a href="https://www.geoapify.com/">Geoapify</a> · <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>
-        {[...new Set(sources)].filter(Boolean).map((source) => <span key={source}> · {source}</span>)}
-    </p>;
 }
 
 export function AddressSuggestions({ street, number, result, onSelect, input, error, enabled }: Pick<AddressQuery, "street" | "number"> & {
@@ -89,12 +54,10 @@ export function AddressSuggestions({ street, number, result, onSelect, input, er
     const id = useId();
     const [dismissed, setDismissed] = useState(false);
     const [active, setActive] = useState<{ query: string; id: string }>();
-    const searching = enabled && street.length >= 4;
+    const searching = enabled && canSearchAddress(street, number);
     const suggestions = searching && !dismissed ? result?.suggestions ?? [] : [];
     const expanded = suggestions.length > 0;
     const activeIndex = active?.query === result?.query ? suggestions.findIndex((item) => item.id === active?.id) : -1;
-    const sources = suggestions.flatMap(({ geoapifyAttribution }) =>
-        geoapifyAttribution === undefined ? [] : [geoapifyAttribution]);
     const optionId = (index: number) => `${id}-option-${index}`;
     const pick = (suggestion: AddressSuggestion) => {
         setActive(undefined);
@@ -144,11 +107,11 @@ export function AddressSuggestions({ street, number, result, onSelect, input, er
             </span>
             {error}
         </label>
-        {searching && !dismissed && (!result || result.pending) && <p className="address-status small muted" role="status">
-            <LoaderCircle className="spin" size={15} aria-hidden="true"/> {result ? "Comprobando numeración…" : "Buscando direcciones…"}
+        {searching && !dismissed && !result && <p className="address-status small muted" role="status">
+            <LoaderCircle className="spin" size={15} aria-hidden="true"/> Buscando en Google Maps…
         </p>}
-        {searching && !dismissed && result && !result.pending && !expanded && <p className="address-status small muted" role="status">
-            {result.failed ? "La búsqueda no está disponible por ahora. Puedes marcar el punto en el mapa."
+        {searching && !dismissed && result && !expanded && <p className="address-status small muted" role="status">
+            {result.failed ? "Google Places no está disponible por ahora. Puedes ubicar el punto manualmente."
                 : "Dirección no encontrada. Puedes marcar el punto en el mapa."}
         </p>}
         {expanded && <ul id={id} className="address-suggestions" role="listbox" aria-label="Sugerencias de dirección">
@@ -157,11 +120,12 @@ export function AddressSuggestions({ street, number, result, onSelect, input, er
             <MapPin size={17} aria-hidden="true"/>
             <div><strong>{suggestion.address}</strong>
                 <span>{[...new Set([suggestion.commune, suggestion.city, suggestion.region])].filter(Boolean).join(", ")}</span>
-                <span className={suggestion.point ? "address-verified" : undefined}>{suggestion.point ? "Dirección con número verificado"
+                <span className={suggestion.point ? "address-verified" : undefined}>{suggestion.resolve ? "Consultar ubicación" : suggestion.point ? "Dirección con número verificado"
                     : number ? `Calle encontrada · número ${number} sin punto verificado`
-                    : "Referencia de calle · marca el punto de retiro"}</span>
+                    : "Referencia para ubicar el punto de retiro"}</span>
             </div>
         </li>)}
     </ul>}
-    {sources.length > 0 && <GeoapifyAttribution sources={sources}/>}</div>;
+    {suggestions.some((suggestion) => suggestion.resolve) && <p className="small muted" translate="no">Google Maps</p>}
+    </div>;
 }

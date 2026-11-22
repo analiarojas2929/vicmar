@@ -6,7 +6,8 @@ export async function lookupAddress(request, key) {
 
     const query = await request.json().catch(() => null);
     if (!query || [["street", 200], ["number", 20], ["commune", 100], ["region", 100]].some(([field, max]) =>
-        typeof query[field] !== "string" || query[field].length > max) || query.street.trim().length < 4) {
+        typeof query[field] !== "string" || query[field].length > max) || !query.street.trim() ||
+        [query.street, query.number].filter(Boolean).join(" ").trim().length < 3) {
         return new Response(null, { status: 400, headers });
     }
 
@@ -24,7 +25,7 @@ export async function lookupAddress(request, key) {
         const { results } = await response.json();
         if (!Array.isArray(results)) return new Response(null, { status: 502, headers });
         return Response.json({ results: results.map((entry) => ({
-            place_id: entry.place_id, street: entry.street, housenumber: entry.housenumber,
+            place_id: entry.place_id, name: entry.name, street: entry.street, housenumber: entry.housenumber,
             city: entry.city, county: entry.county, municipality: entry.municipality,
             district: entry.district, suburb: entry.suburb, state: entry.state, country_code: entry.country_code,
             lat: entry.lat, lon: entry.lon, result_type: entry.result_type,
